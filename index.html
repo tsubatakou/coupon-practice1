@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電子クーポン練習アプリ</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body{
+    font-family:sans-serif;
+    background:#f2f2f2;
+    margin:0;
+    padding:20px;
+    font-size:24px;
+}
+
+.screen{
+    display:none;
+}
+
+.active{
+    display:block;
+}
+
+h1{
+    text-align:center;
+    font-size:38px;
+}
+
+button{
+    width:100%;
+    padding:25px;
+    margin-top:20px;
+    font-size:28px;
+    border:none;
+    border-radius:12px;
+    background:#1976d2;
+    color:white;
+}
+
+input, select{
+    width:100%;
+    padding:20px;
+    margin-top:15px;
+    font-size:26px;
+}
+
+.box{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    margin-top:20px;
+}
+
+.balance{
+    font-size:42px;
+    text-align:center;
+    color:green;
+    font-weight:bold;
+}
+
+.qr{
+    background:#ddd;
+    height:220px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    border-radius:12px;
+}
+
+#reader{
+    width:100%;
+    margin-top:20px;
+}
+
+.history-item{
+    border-bottom:1px solid #ccc;
+    padding:15px 0;
+}
+
+.success{
+    color:green;
+    font-weight:bold;
+    text-align:center;
+    font-size:32px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- クーポン取得 -->
+<div id="screen1" class="screen active">
+
+<h1>電子クーポン取得</h1>
+
+<div class="box">
+
+<p>① QRコードを読み取る</p>
+
+<div class="qr">
+練習用QRコード
+</div>
+
+<button onclick="showSurvey()">
+電子クーポン取得
+</button>
+
+</div>
+
+</div>
+
+<!-- アンケート -->
+<div id="survey" class="screen">
+
+<h1>アンケート</h1>
+
+<div class="box">
+
+<label>性別</label>
+
+<select>
+<option>男性</option>
+<option>女性</option>
+<option>回答しない</option>
+</select>
+
+<label>年代</label>
+
+<select>
+<option>60代</option>
+<option>70代</option>
+<option>80代以上</option>
+</select>
+
+<button onclick="completeCoupon()">
+クーポン取得完了
+</button>
+
+</div>
+
+</div>
+
+<!-- TOP -->
+<div id="top" class="screen">
+
+<h1>電子クーポンTOP</h1>
+
+<div class="box">
+
+<div class="balance" id="balance">
+¥4,000
+</div>
+
+<button onclick="startQR()">
+コード読み取り
+</button>
+
+<button onclick="showHistory()">
+利用履歴を見る
+</button>
+
+<button onclick="resetApp()">
+最初から練習する
+</button>
+
+</div>
+
+</div>
+
+<!-- QR読み取り -->
+<div id="qrScreen" class="screen">
+
+<h1>QRコード読み取り</h1>
+
+<div class="box">
+
+<p>お店のQRコードを読み取ってください</p>
+
+<div id="reader"></div>
+
+<p class="success" id="scanResult"></p>
+
+<button onclick="stopQR()">
+読み取りを終了
+</button>
+
+</div>
+
+</div>
+
+<!-- 支払い -->
+<div id="pay" class="screen">
+
+<h1>お支払い</h1>
+
+<div class="box">
+
+<p id="shopDisplay">店舗：○○商店</p>
+
+<input type="number" id="amount" placeholder="利用金額を入力">
+
+<button onclick="payNow()">
+支払う
+</button>
+
+</div>
+
+</div>
+
+<!-- 完了 -->
+<div id="done" class="screen">
+
+<h1>支払い完了</h1>
+
+<div class="box">
+
+<p id="paidShop"></p>
+
+<p id="paidAmount"></p>
+
+<p id="dateTime"></p>
+
+<div class="balance" id="newBalance"></div>
+
+<button onclick="backTop()">
+TOPへ戻る
+</button>
+
+<button onclick="showHistory()">
+利用履歴を見る
+</button>
+
+</div>
+
+</div>
+
+<!-- 履歴 -->
+<div id="history" class="screen">
+
+<h1>利用履歴</h1>
+
+<div class="box" id="historyList">
+</div>
+
+<button onclick="backTop()">
+TOPへ戻る
+</button>
+
+</div>
+
+<script>
+
+let balance = 4000;
+let historyData = [];
+let currentShop = "○○商店";
+let html5QrCode;
+
+function changeScreen(id){
+
+    document.querySelectorAll('.screen').forEach(s=>{
+        s.classList.remove('active');
+    });
+
+    document.getElementById(id).classList.add('active');
+}
+
+function showSurvey(){
+    changeScreen('survey');
+}
+
+function completeCoupon(){
+
+    alert("電子クーポン取得完了");
+
+    changeScreen('top');
+}
+
+function startQR(){
+
+    changeScreen('qrScreen');
+
+    document.getElementById('scanResult').innerText = "";
+
+    html5QrCode = new Html5Qrcode("reader");
+
+    Html5Qrcode.getCameras().then(devices => {
+
+        if (devices && devices.length) {
+
+            html5QrCode.start(
+                { facingMode: "environment" },
+                {
+                    fps: 10,
+                    qrbox: 250
+                },
+                qrCodeMessage => {
+
+                    currentShop = qrCodeMessage;
+
+                    document.getElementById('scanResult').innerText =
+                        "読み取り成功！";
+
+                    stopQR();
+
+                    document.getElementById('shopDisplay').innerText =
+                        "店舗：" + currentShop;
+
+                    setTimeout(()=>{
+                        changeScreen('pay');
+                    },1000);
+                },
+                errorMessage => {
+                }
+            );
+        }
+
+    }).catch(err => {
+
+        alert("カメラが利用できません");
+
+    });
+}
+
+function stopQR(){
+
+    if(html5QrCode){
+
+        html5QrCode.stop().then(() => {
+        }).catch(err => {
+        });
+    }
+}
+
+function payNow(){
+
+    let amount = parseInt(document.getElementById('amount').value);
+
+    if(!amount || amount <= 0){
+
+        alert("金額を入力してください");
+        return;
+    }
+
+    if(amount > balance){
+
+        alert("残高不足です");
+        return;
+    }
+
+    balance -= amount;
+
+    let now = new Date();
+
+    let textDate =
+        now.getFullYear() + "/" +
+        (now.getMonth()+1) + "/" +
+        now.getDate() + " " +
+        now.getHours() + ":" +
+        String(now.getMinutes()).padStart(2,'0');
+
+    historyData.push({
+        shop:currentShop,
+        amount:amount,
+        date:textDate
+    });
+
+    document.getElementById('balance').innerText =
+        "¥" + balance.toLocaleString();
+
+    document.getElementById('paidShop').innerText =
+        "店舗：" + currentShop;
+
+    document.getElementById('paidAmount').innerText =
+        "支払額：¥" + amount.toLocaleString();
+
+    document.getElementById('dateTime').innerText =
+        textDate;
+
+    document.getElementById('newBalance').innerText =
+        "残高：¥" + balance.toLocaleString();
+
+    document.getElementById('amount').value = "";
+
+    changeScreen('done');
+}
+
+function showHistory(){
+
+    let area = document.getElementById('historyList');
+
+    area.innerHTML = "";
+
+    if(historyData.length === 0){
+
+        area.innerHTML = "<p>利用履歴はありません</p>";
+    }
+
+    historyData.forEach(item=>{
+
+        area.innerHTML += `
+        <div class="history-item">
+            <p>店舗：${item.shop}</p>
+            <p>金額：¥${item.amount.toLocaleString()}</p>
+            <p>日時：${item.date}</p>
+        </div>
+        `;
+    });
+
+    changeScreen('history');
+}
+
+function backTop(){
+
+    changeScreen('top');
+}
+
+function resetApp(){
+
+    balance = 4000;
+    historyData = [];
+
+    document.getElementById('balance').innerText =
+        "¥4,000";
+
+    changeScreen('screen1');
+}
+
+</script>
+
+</body>
+</html>
